@@ -300,7 +300,7 @@ interface URArm {
      * @param v tool speed (m/s)
      * @param r blend radius (m)
      * @param mode defines the orientation interpolation mode:
-     * - `0`: Unconstrained mode. Interpolate orientation from current pose to target pose ([poseTo]) <br><br>
+     * - `0`: Unconstrained mode. Interpolate orientation from current pose to target pose (poseTo) <br><br>
      * - `1`: Fixedmode. Keep orientation constant relative to the tangent of the circular arc (starting from current pose)
      * @param cmdTimeout maximum time (in milliseconds) to wait for the command to complete.
      *   If this time is exceeded, the command is considered failed and the ArmState will no longer be updated.

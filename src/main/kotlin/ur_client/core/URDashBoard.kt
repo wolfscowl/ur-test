@@ -181,7 +181,7 @@ interface URDashBoard {
      * @param onFailure Optional callback invoked if the request failed due to a technical error
      * (e.g. connection issues, timeouts). Receives the [Exception] describing the failure.
      *
-     * @sample com.wolfscowl.ur_client.examples.Examples.powering
+     * @sample com.wolfscowl.ur_client.examples.ExamplesDoc.powering
      */
     fun powerOff(onFailure: (Exception) -> Unit = {}, onResponse: (String) -> Unit = {})
 
