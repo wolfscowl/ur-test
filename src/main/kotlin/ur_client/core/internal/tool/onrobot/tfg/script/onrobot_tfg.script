@@ -1,0 +1,381 @@
+def {{_scriptName_}}():
+    index = {{_toolIndex_}}
+    host = "{{_host_}}"
+    popupmsg = {{_popupmsg_}}
+
+    twofg_index = index
+    twofg_dataRead_running = False
+    twofg_sendTelemetry_running = False
+    twofg_sendTelemetry_updateHz = 10
+    twofg_Width_ext_arr=[0,0,0]
+    twofg_Width_int_arr=[0,0,0]
+    twofg_Force_arr=[0,0,0]
+    twofg_device_id_arr=[0,0,0]
+    twofg_product_code_arr=[0,0,0]
+    twofg_Status_arr=[0,0,0]
+    twofg_Grip_detected_arr=[False,False,False]
+    twofg_Busy_arr=[False,False,False]
+    twofg_data_error_arr=[0,0,0]
+    twofg_fingertip_arr=[0,0,0]
+    twofg_Grip_guard_arr=[False,False,False]
+    twofg_grip_title="OnRobot - 2FG Grip"
+    twofg_grip_return_error_n1="twofg command returned with error.<br>Please be sure that the required width is between the limits.<br>Program halted."
+    twofg_grip_return_error_n2="twofg Grip command did not apply the force at the end.<br>Program halted."
+    twofg_error_title="OnRobot - 2FG error"
+    twofg_device_id_waiting="Waiting for valid OnRobot 2FG ID..."
+    twofg_device_id_timeout="Waiting for valid OnRobot 2FG ID timed out.<br>Program halted."
+    twofg_DEVICE_ID_twofg7=192
+    twofg_DEVICE_ID_twofg14=193
+
+    ON_CONN_SHIFT_BOOL = 74
+    ON_CONN_SHIFT_INT = 34
+    ON_CONN_SHIFT_FLOAT = 34
+    ON_CONN_REG_SUM_BOOL = 4
+    ON_CONN_REG_SUM_INT = 5
+    ON_CONN_REG_SUM_FLOAT = 2
+    ON_TOOL_SHIFT_BOOL = 74
+    ON_TOOL_SHIFT_INT = 35
+    ON_TOOL_SHIFT_FLOAT = 34
+    ON_TOOL_SHIFT_BOOL_ARR = [74, 78, 78]
+    ON_TOOL_SHIFT_INT_ARR = [35, 39, 39]
+    ON_TOOL_SHIFT_FLOAT_ARR = [34, 36, 36]
+    ON_TOOL_REG_SUM_BOOL = 4
+    ON_TOOL_REG_SUM_INT = 4
+    ON_TOOL_REG_SUM_FLOAT = 2
+    ON_REGISTERS_SPEEDL_FLOAT = 0
+    ON_REG_USE_TOOL = False
+    ON_DI_SINGLE = 0
+    ON_DI_PRIMARY = 1
+    ON_DI_SECONDARY = 2
+    ON_DI_DUAL = 3
+
+    ON_ZEROFRAME=p[0.0,0.0,0.0,0.0,0.0,0.0]
+    on_tcp_static_primary=ON_ZEROFRAME
+    on_tcp_static_secondary=ON_ZEROFRAME
+
+    on_conn_ip = host
+    on_tool_ip = host
+    on_device_socket_port = 51234
+    ON_DEBUG_LOG = False
+    on_conn_rtde_feed_name="rtdeFeedConn"
+    on_tool_rtde_feed_name="rtdeFeedTool"
+    on_devices = 2
+    ON_INIT_WATCHDOG_HZ=5
+    ON_INIT_TIMEOUT=2000
+    on_tool_xmlrpc = rpc_factory("xmlrpc", "http://" + host + ":41414")
+    on_conn_xmlrpc = rpc_factory("xmlrpc", "http://" + host + ":41414")
+
+    on_portopened_javaSocket=False
+    on_rtde_feed_opened=False
+    on_dataProcess_running=False
+
+    on_xmlrpc_start_ip="Connecting to OnRobot XML-RPC Server:"
+    on_rtde_feed_error_textmsg_title="OnRobot - RTDE error:"
+    on_rtde_feed_error="RTDE feed error. OnRobot device count mismatch. Program halted."
+    on_rtde_feed_tool_error="Tool RTDE feed error. OnRobot device count mismatch. Program halted."
+    on_rtde_feed_open_error_textmsg="Socket 'rtdeFeed' opening was unsuccessful."
+    on_rtde_feed_error_title="OnRobot - RTDE error"
+    on_rtde_feed_count_error="Invalid RTDE offset setup detected. Please check RTDE Offsets at the OnRobot Setup page in the Installation Tab.<br>Program halted."
+    on_rtde_feed_open_error="Establishing connection with the devices was timed out. Ensure that the OnRobot devices are operational, and check the status in the OnRobot Setup page in the Installation Tab."
+    on_rtde_socket_open_error_title = "OnRobot - Socket error"
+    on_rtde_socket_open_error = "Not able to open socket "+on_conn_rtde_feed_name+" to host "+ on_conn_ip +" at port "+ to_str(on_device_socket_port) +". Connection timed out"
+
+
+    # ========================= HELPER - START ========================= #
+
+    def str_replace(s, old, new):
+        result = ""
+        i = 0
+        while i < str_len(s):
+            if str_sub(s, i, str_len(old)) == old:
+                result = result + new
+                i = i + str_len(old)
+            else:
+                result = result + str_sub(s, i, 1)
+                i = i + 1
+            end
+        end
+        return result
+    end
+  
+
+    def send_event(eventType, value1="", value2="", value3="", value4="", value5="", value6=""):
+        # helper function
+        def append(val):
+            res_str = ""
+            s = to_str(val)
+            if (not str_empty(s)):
+                res_str = "||" + s
+            end
+            return res_str
+        end
+ 
+        msg = 
+        "event||{{_scriptName_}}||" + eventType
+        + append(value1) + append(value2) + append(value3)
+        + append(value4) + append(value5) + append(value6)
+    
+        textmsg(msg)
+    end
+
+
+    def show_popup(s, title="Popup", warning=False, error=False, blocking=False):
+        if (popupmsg):
+            popup(s, title = title, warning = warning, error = error, blocking = blocking)
+        end
+    end
+
+    # ========================= HELPER - END =========================== #
+    # ===================== RTDE FEED - START ========================== #
+
+
+    def on_rtde_feed_close(rtdeFeedName):
+        socket_close(rtdeFeedName)
+        on_rtde_feed_opened=False
+    end
+
+    def on_rtde_feed_open(deviceIP,rtdeFeedName,regStart,regSum,regSpeedl):
+        on_rtde_feed_close(rtdeFeedName)
+        if((regStart[0]+regSum[0])>128)or((regStart[1]+regSum[1])>48)or((regStart[2]+regSum[2])>48):
+            send_event("error", on_rtde_feed_error_title, on_rtde_feed_count_error)
+            show_popup(on_rtde_feed_count_error,title=on_rtde_feed_error_title,error=True,blocking=False)
+            textmsg(str_cat("RegStart: ",regStart),str_cat("	-	RegSum: ",regSum))
+            halt
+        end
+        on_rtde_feed_opened=socket_open(deviceIP,on_device_socket_port,rtdeFeedName)
+        if not on_rtde_feed_opened:
+            on_rtde_feed_opened=socket_open(deviceIP,on_device_socket_port,rtdeFeedName)
+        end
+        if not on_rtde_feed_opened:
+            send_event("error", on_rtde_socket_open_error_title, on_rtde_socket_open_error)
+            send_event("error", on_rtde_feed_error_textmsg_title, on_rtde_feed_open_error_textmsg)
+            send_event("error", on_rtde_feed_error_title, on_rtde_feed_open_error)
+            textmsg(on_rtde_feed_error_textmsg_title,on_rtde_feed_open_error_textmsg)
+            show_popup(on_rtde_feed_open_error,title=on_rtde_feed_error_title,error=True,blocking=False)
+            halt
+        end
+        socket_send_int(regStart[0],rtdeFeedName)
+        socket_send_int(regSum[0],rtdeFeedName)
+        socket_send_int(regStart[1],rtdeFeedName)
+        socket_send_int(regSum[1],rtdeFeedName)
+        socket_send_int(regStart[2],rtdeFeedName)
+        socket_send_int(regSum[2],rtdeFeedName)
+        socket_send_int(regSpeedl,rtdeFeedName)
+        socket_send_int(on_devices,rtdeFeedName)
+    end
+
+    def on_set_rtde_watchdog(updateHz=ON_INIT_WATCHDOG_HZ):
+        local effect="stop"
+        if(updateHz<1):
+            effect="ignore"
+        end
+        watchdog_conn_reg_str=str_cat("input_int_register_",ON_CONN_SHIFT_INT)
+        rtde_set_watchdog(watchdog_conn_reg_str,updateHz,effect)
+        if(ON_REG_USE_TOOL):
+            watchdog_tool_reg_str=str_cat("input_int_register_",ON_TOOL_SHIFT_INT_ARR[0])
+            rtde_set_watchdog(watchdog_tool_reg_str,updateHz,effect)
+        end
+        if ON_DEBUG_LOG:
+            local update_str=str_cat(" "+effect+" watchdog set to [Hz]: ",updateHz)
+            textmsg(watchdog_conn_reg_str,update_str)
+            if(ON_REG_USE_TOOL):
+                local update_str=str_cat(" "+effect+" watchdog set to [Hz]: ",updateHz)
+                textmsg(watchdog_tool_reg_str,update_str)
+            end
+        end
+    end
+
+
+    # ===================== RTDE FEED - END ============================ #
+    # ===================== DATA READ - START ========================== #
+
+
+    def twofg_dataRead_RTDE(tool_index):
+        local reg_offset_bool=ON_TOOL_SHIFT_BOOL_ARR[tool_index]
+        local reg_offset_int=ON_TOOL_SHIFT_INT_ARR[tool_index]
+        local reg_offset_float=ON_TOOL_SHIFT_FLOAT_ARR[tool_index]
+        enter_critical
+            floatRegDummy=read_input_float_register(reg_offset_float+0)
+            twofg_Width_ext_arr[tool_index]=floatRegDummy
+            floatRegDummy=read_input_float_register(reg_offset_float+1)
+            twofg_Width_int_arr[tool_index]=floatRegDummy
+            intRegDummy=read_input_integer_register(reg_offset_int+0)
+            twofg_device_id_arr[tool_index]=intRegDummy
+            intRegDummy=read_input_integer_register(reg_offset_int+1)
+            twofg_product_code_arr[tool_index]=intRegDummy
+            intRegDummy=read_input_integer_register(reg_offset_int+2)
+            twofg_Status_arr[tool_index]=intRegDummy
+            intRegDummy=read_input_integer_register(reg_offset_int+3)
+            twofg_Force_arr[tool_index]=intRegDummy
+            boolRegDummy=read_input_boolean_register(reg_offset_bool+0)
+            twofg_Busy_arr[tool_index]=boolRegDummy
+            boolRegDummy=read_input_boolean_register(reg_offset_bool+1)
+            twofg_Grip_detected_arr[tool_index]=boolRegDummy
+        exit_critical
+    end
+
+
+    thread twofg_dataRead_thread():
+      if ON_DEBUG_LOG:
+        textmsg("Starting twofg_dataRead thread")
+      end
+      while twofg_dataRead_running:
+        sync()
+        if(twofg_index==ON_DI_DUAL):
+          twofg_dataRead_RTDE(ON_DI_PRIMARY)
+          twofg_dataRead_RTDE(ON_DI_SECONDARY)
+        else:
+          twofg_dataRead_RTDE(twofg_index)
+        end
+      end
+      if ON_DEBUG_LOG:
+        textmsg("Stopping twofg_dataRead thread")
+      end
+    end
+
+
+    # ===================== DATA READ - END ============================ #
+    # ===================== ACTION DEF START =========================== #
+
+    thread twofg_sendTelemetry_thread():
+        while twofg_sendTelemetry_running:
+            send_event("ext_int_width", twofg_Width_ext_arr[index], twofg_Width_int_arr[index])
+            sleepTime = 1 / twofg_sendTelemetry_updateHz
+            sleep(sleepTime)
+        end
+    end
+
+
+    def twofg_grip(width,force,speed,external_grip=True,stop_if_no_force=False,tool_index=0,blocking=True):
+        if ON_DEBUG_LOG:
+            textmsg("twofg Grip start..")
+        end
+        local retVal=0
+        # twofg_Grip_guard_arr[tool_index]=False
+        # sync()
+        # if(tool_index==ON_DI_SECONDARY):
+        #    local isPrimary=False
+        # else:
+        #    local isPrimary=True
+        # end
+        # if(on_follow_tcp):
+        #    on_tcp_set_actual_to(isPrimary)
+        # end
+        sync()
+        if external_grip:
+            retVal=on_tool_xmlrpc.twofg_grip_external(tool_index,width+0.0,force,speed)
+        else:
+            retVal=on_tool_xmlrpc.twofg_grip_internal(tool_index,width+0.0,force,speed)
+        end
+        if(retVal!=0):
+            send_event("error", twofg_grip_title, twofg_grip_return_error_n1)
+            show_popup(twofg_grip_return_error_n1,twofg_grip_title,error=True,blocking=False)
+            halt
+        end
+        # ======= Blocking START ========= #
+        if blocking:
+            local timeout=0
+            while not twofg_Busy_arr[twofg_index]:
+                sleep(0.008)
+                timeout=timeout+1
+                if timeout>20:
+                    break
+                end
+            end
+            while(twofg_Busy_arr[twofg_index]==True):
+                sync()
+            end
+            if twofg_Grip_detected_arr[tool_index]:
+                send_event("grip_detection", True)
+            else:
+                send_event("grip_detection", False)
+            end
+            send_event("ext_int_width", twofg_Width_ext_arr[index], twofg_Width_int_arr[index])
+            # if stop_if_no_force and not twofg_Grip_detected_arr[tool_index]:
+            #    show_popup(twofg_grip_return_error_n2,twofg_grip_title,error=True,blocking=False)
+            #    halt
+            # end
+        end
+        # if(on_follow_tcp):
+        #    on_tcp_update(isPrimary)
+        # end
+        # ======= Blocking END ========= #
+        if ON_DEBUG_LOG:
+            textmsg("2FG Grip ended.")
+        end
+        return retVal
+    end
+
+
+    def twofg_release(width,force,speed,external_release=True,tool_index=0,blocking=True):
+        local retVal=0
+        retVal=twofg_grip(width+0.0,force,speed,external_release, False, tool_index,blocking)
+        return retVal
+    end
+
+    # ===================== ACTION DEF END ============================= #
+    # ===================== INIT - START =============================== #
+    def done_waiting_for_init(device_name,product_code,tool_index=0):
+      textmsg(str_cat(device_name,str_cat(str_cat("[",tool_index),"]: ")),product_code)
+    end
+
+    def twofg_wait_for_init(tool_index):
+      local twofg_timeout=0
+      while not((twofg_product_code_arr[tool_index]==twofg_DEVICE_ID_twofg7)or(twofg_product_code_arr[tool_index]==twofg_DEVICE_ID_twofg14)):
+        sync()
+        twofg_timeout=twofg_timeout+1
+        if(twofg_timeout>ON_INIT_TIMEOUT):
+          send_event("tool_detection", False)
+          send_event("error", twofg_error_title,twofg_device_id_timeout)
+          show_popup(twofg_device_id_timeout,twofg_error_title,error=True,blocking=False)
+          halt
+        end
+      end
+      send_event("tool_detection", True)
+      done_waiting_for_init("2FG",twofg_product_code_arr[tool_index],tool_index)
+    end
+
+
+    sync()
+    # textmsg(on_xmlrpc_start_ip,on_conn_ip)
+    if(ON_REG_USE_TOOL):
+        on_regStart_conn=[ON_CONN_SHIFT_BOOL,ON_CONN_SHIFT_INT,ON_CONN_SHIFT_FLOAT]
+        on_regSum_conn=[ON_CONN_REG_SUM_BOOL,ON_CONN_REG_SUM_INT,ON_CONN_REG_SUM_FLOAT]
+        on_rtde_feed_open(on_conn_ip,on_conn_rtde_feed_name,on_regStart_conn,on_regSum_conn,ON_REGISTERS_SPEEDL_FLOAT)
+        sync()
+        # textmsg(on_xmlrpc_start_ip,on_tool_ip)
+        on_regStart_tool=[ON_TOOL_SHIFT_BOOL,ON_TOOL_SHIFT_INT,ON_TOOL_SHIFT_FLOAT]
+        on_regSum_tool=[ON_TOOL_REG_SUM_BOOL,ON_TOOL_REG_SUM_INT,ON_TOOL_REG_SUM_FLOAT]
+        on_rtde_feed_open(on_tool_ip,on_tool_rtde_feed_name,on_regStart_tool,on_regSum_tool,0)
+        sync()
+    else:
+        on_regStart_conn=[ON_CONN_SHIFT_BOOL,ON_CONN_SHIFT_INT,ON_CONN_SHIFT_FLOAT]
+        on_regSum_conn=[ON_CONN_REG_SUM_BOOL,ON_CONN_REG_SUM_INT,ON_CONN_REG_SUM_FLOAT]
+        on_rtde_feed_open(on_conn_ip,on_conn_rtde_feed_name,on_regStart_conn,on_regSum_conn,ON_REGISTERS_SPEEDL_FLOAT)
+        sync()
+    end
+    on_set_rtde_watchdog(updateHz=0.2)
+    sync()
+    twofg_dataRead_running=True
+    sync()
+    twofg_dataRead_thrd=run twofg_dataRead_thread()
+    textmsg(twofg_device_id_waiting)
+    if(twofg_index==ON_DI_DUAL):
+      twofg_wait_for_init(ON_DI_PRIMARY)
+      twofg_wait_for_init(ON_DI_SECONDARY)
+    else:
+      twofg_wait_for_init(twofg_index)
+    end
+    sync()
+    twofg_sendTelemetry_running = True
+    twofg_sendTelemetry_updateHz = 10
+    twofg_sendTelemetry_thrd = run twofg_sendTelemetry_thread()
+
+    # ===================== INIT - END ================================= #
+    # ===================== RUN PROGRAM - START ======================== #
+
+    {{_scriptTask_}}
+
+    # ===================== RUN PROGRAM - END ========================== #
+
+end

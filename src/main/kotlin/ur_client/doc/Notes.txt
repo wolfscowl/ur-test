@@ -1,0 +1,89 @@
+  vg_Vacuum_A_arr = [0, 0, 0]
+  vg_Vacuum_B_arr = [0, 0, 0]
+  vg_Vacuum_AB_arr = [0, 0, 0, 0, 0, 0]
+  vg_mass_A_arr = [0, 0, 0]
+  vg_mass_B_arr = [0, 0, 0]
+
+
+// ============================== RequestValueMessage ==============================
+-=RequestValueMessage=-
+  timestamp = 4611960000
+  source = MESSAGE_SOURCE_RTMACHINE
+  robotMessageType = REQUEST_VALUE
+  requestID = 5
+  requestedType = REQUEST_VALUE_TYPE_NONE
+  requestTextMessage =   OnRobot - 2FG Griptwofg Grip command did not apply the force at the end.<br>Program halted.
+
+
+
+// ============================== Test-Script 01 - OnRobot Gripper RG ==============================
+
+global ip_address = "139.6.77.137"
+
+# min 0 max 37
+global width_open = 30.0
+global width_closed = 10.0
+
+# min 20 N max 85 N
+global force = 50.0
+
+# min 10% max 100%
+global speed = 30
+
+global tool_index = 0
+
+
+gripper = rpc_factory("xmlrpc", "http://" + ip_address + ":41414")
+
+def grip_int():
+    gripper.twofg_grip_internal(tool_index,width_closed+0.0,force,speed)
+end
+
+def release_int():
+    gripper.twofg_grip_internal(tool_index,width_open+0.0,force,speed)
+end
+
+def grip_ext():
+    gripper.twofg_grip_external(tool_index,width_closed+0.0,force,speed)
+end
+
+def release_ext():
+    gripper.twofg_grip_external(tool_index,width_open+0.0,force,speed)
+end
+
+
+grip_ext()
+
+release_ext()
+
+
+
+
+// ============================== Test-Script 01 - OnRobot Gripper RG2 ==============================
+https://forum.universal-robots.com/t/urscript-control-of-onrobot-rg2-robot-gripper/8498
+
+global ip_address = "192.168.1.20"
+global width_open = 70.0
+global width_closed = 20.0
+global index = 0
+global closure_force = 50.0
+
+gripper = rpc_factory("xmlrpc", "http://" + ip_address + ":41414")
+
+def grasp():
+    gripper.rg_grip(index, width_closed, closure_force)
+end
+
+def release():
+    gripper.rg_grip(index, width_open, closure_force)
+end
+
+movel(p[0.511, -0.133, 0.3, -0.00, 3.14, -0.00])
+movel(p[0.511, -0.133, 0.2, -0.00, 3.14, -0.00])
+grasp()
+movel(p[0.511, -0.133, 0.3, -0.00, 3.14, -0.00])
+
+movel(p[0.511, 0.339, 0.300, 0.00, 3.14, -0.00])
+movel(p[0.511, 0.339, 0.200, 0.00, 3.14, -0.00])
+release()
+movel(p[0.511, 0.339, 0.300, 0.00, 3.14, -0.00])

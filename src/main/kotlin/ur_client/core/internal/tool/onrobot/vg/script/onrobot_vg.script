@@ -1,0 +1,529 @@
+def {{_scriptName_}}():
+    index = {{_toolIndex_}}
+    host = "{{_host_}}"
+    popupmsg = {{_popupmsg_}}
+
+    vg_index = index
+    vg_dataRead_running = False
+    vg_time_running = False
+    vg_sendTelemetry_running = False
+    vg_sendTelemetry_updateHz = 10
+    vg_device_id_arr = [0, 0, 0]
+    vg_product_code_arr = [0, 0, 0]
+    vg_Limit_ma_arr = [0, 0, 0]
+    vg_Vacuum_A_arr = [0, 0, 0]
+    vg_Vacuum_B_arr = [0, 0, 0]
+    vg_mass_A_arr = [0, 0, 0] # payload array - remove
+    vg_mass_B_arr = [0, 0, 0] # payload array - remove
+    vg_error_title = "OnRobot - VG error"
+    vg_device_id_waiting = "Waiting for valid OnRobot VG ID..."
+    vg_device_id_timeout = "Waiting for valid OnRobot VG ID timed out. Program halted."
+    vg_status_error_title = "OnRobot - VG Status error"
+    vg_status_error_missing = "Communication problem with a VG gripper. Please check the device. Program halted."
+
+
+    VG_DEVICE_ID_VG10 = 16
+    VG_DEVICE_ID_VGC10 = 17
+
+    ON_CONN_SHIFT_BOOL = 64
+    ON_CONN_SHIFT_INT = 24
+    ON_CONN_SHIFT_FLOAT = 24
+    ON_CONN_REG_SUM_BOOL = 0
+    ON_CONN_REG_SUM_INT = 4
+    ON_CONN_REG_SUM_FLOAT = 2
+    ON_TOOL_SHIFT_BOOL = 64
+    ON_TOOL_SHIFT_INT = 25
+    ON_TOOL_SHIFT_FLOAT = 24
+    ON_TOOL_SHIFT_BOOL_ARR = [64, 64, 64]
+    ON_TOOL_SHIFT_INT_ARR = [25, 28, 28]
+    ON_TOOL_SHIFT_FLOAT_ARR = [24, 26, 26]
+    ON_TOOL_REG_SUM_BOOL = 0
+    ON_TOOL_REG_SUM_INT = 3
+    ON_TOOL_REG_SUM_FLOAT = 2
+    ON_REGISTERS_SPEEDL_FLOAT = 0
+    ON_REG_USE_TOOL = False
+    ON_DI_SINGLE = 0
+    ON_DI_PRIMARY = 1
+    ON_DI_SECONDARY = 2
+    ON_DI_DUAL = 3
+
+    on_conn_ip = host
+    on_tool_ip = host
+    on_devices = 1
+    on_follow_tcp = False
+    ON_INIT_WATCHDOG_HZ = 5
+    ON_INIT_TIMEOUT = 2000
+    on_device_socket_port = 51234
+    on_conn_xmlrpc = rpc_factory("xmlrpc", "http://" + host + ":41414")
+    on_tool_xmlrpc = rpc_factory("xmlrpc", "http://" + host + ":41414")
+    on_conn_rtde_feed_name = "rtdeFeedConn"
+    on_tool_rtde_feed_name = "rtdeFeedTool"
+    ON_DEBUG_LOG = False
+    on_xmlrpc_start_ip = "Connecting to OnRobot XML-RPC Server:"
+
+    ON_ZEROFRAME = p[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    on_tcp_offset_actual = ON_ZEROFRAME
+    on_tcp_offset_primary = ON_ZEROFRAME
+    on_tcp_offset_secondary = ON_ZEROFRAME
+    on_tcp_static_primary = ON_ZEROFRAME
+    on_tcp_static_secondary = ON_ZEROFRAME
+
+    on_portopened_javaSocket = False
+    on_rtde_feed_opened = False
+    on_dataProcess_running = False
+
+    vg_step_time = 0.002
+    vg_glob_time = 0.0
+
+    on_xmlrpc_start_ip = "Connecting to OnRobot XML-RPC Server:"
+    on_rtde_feed_error_textmsg_title = "OnRobot - RTDE error:"
+    on_rtde_feed_error = "RTDE feed error. OnRobot device count mismatch.<br>Program halted."
+    on_rtde_feed_tool_error = "Tool RTDE feed error. OnRobot device count mismatch.<br>Program halted."
+    on_rtde_feed_open_error_textmsg = "Socket 'rtdeFeed' opening was unsuccessful."
+    on_rtde_feed_error_title = "OnRobot - RTDE error"
+    on_rtde_feed_count_error = "Invalid RTDE offset setup detected. Please check RTDE Offsets at the OnRobot Setup page in the Installation Tab.<br>Program halted."
+    on_rtde_feed_open_error = "Establishing connection with the devices was timed out.<br>Ensure that the OnRobot devices are operational, and check the status in the OnRobot Setup page in the Installation Tab."
+    on_rtde_socket_open_error_title = "OnRobot - Socket error"
+    on_rtde_socket_open_error = "Not able to open socket "+on_conn_rtde_feed_name+" to host "+ on_conn_ip +" at port "+ to_str(on_device_socket_port) +". Connection timed out"
+
+
+    # ========================= HELPER - START ========================= #
+
+    def str_replace(s, old, new):
+        result = ""
+        i = 0
+        while i < str_len(s):
+            if str_sub(s, i, str_len(old)) == old:
+                result = result + new
+                i = i + str_len(old)
+            else:
+                result = result + str_sub(s, i, 1)
+                i = i + 1
+            end
+        end
+        return result
+    end
+    
+
+    def send_event(eventType, value1="", value2="", value3="", value4="", value5="", value6=""):
+        # helper function
+        def append(val):
+            res_str = ""
+            s = to_str(val)
+            if (not str_empty(s)):
+                res_str = "||" + s
+            end
+            return res_str
+        end
+    
+        msg = 
+        "event||{{_scriptName_}}||" + eventType
+        + append(value1) + append(value2) + append(value3)
+        + append(value4) + append(value5) + append(value6)
+    
+        textmsg(msg)
+    end
+
+
+    def show_popup(s, title="Popup", warning=False, error=False, blocking=False):
+        if (popupmsg):
+            popup(s, title = title, warning = warning, error = error, blocking = blocking)
+        end
+    end
+    
+    # ========================= HELPER - END =========================== #
+    # ===================== RTDE FEED - START ========================== #
+
+
+    def on_rtde_feed_close(rtdeFeedName):
+        socket_close(rtdeFeedName)
+        on_rtde_feed_opened = False
+    end
+
+
+    def on_rtde_feed_open(deviceIP, rtdeFeedName, regStart, regSum, regSpeedl):
+        on_rtde_feed_close(rtdeFeedName)
+        if ((regStart[0] + regSum[0]) > 128) or ((regStart[1] + regSum[1]) > 48) or ((regStart[2] + regSum[2]) > 48):
+            send_event("error", on_rtde_feed_error_title, on_rtde_feed_count_error)
+            show_popup(on_rtde_feed_count_error, title = on_rtde_feed_error_title, error = True, blocking = False)
+            textmsg(str_cat("RegStart: ", regStart), str_cat("  -  RegSum: ", regSum))
+            halt
+        end
+        on_rtde_feed_opened = socket_open(deviceIP, on_device_socket_port, rtdeFeedName)
+        if not on_rtde_feed_opened:
+            on_rtde_feed_opened = socket_open(deviceIP, on_device_socket_port, rtdeFeedName)
+        end
+        if not on_rtde_feed_opened:
+            send_event("error", on_rtde_socket_open_error_title, on_rtde_socket_open_error)
+            send_event("error", on_rtde_feed_error_textmsg_title, on_rtde_feed_open_error_textmsg)
+            send_event("error", on_rtde_feed_error_title, on_rtde_feed_open_error)
+            textmsg(on_rtde_feed_error_textmsg_title, on_rtde_feed_open_error_textmsg)
+            show_popup(on_rtde_feed_open_error, title = on_rtde_feed_error_title, error = True, blocking = False)
+            halt
+        end
+        socket_send_int(regStart[0], rtdeFeedName)
+        socket_send_int(regSum[0], rtdeFeedName)
+        socket_send_int(regStart[1], rtdeFeedName)
+        socket_send_int(regSum[1], rtdeFeedName)
+        socket_send_int(regStart[2], rtdeFeedName)
+        socket_send_int(regSum[2], rtdeFeedName)
+        socket_send_int(regSpeedl, rtdeFeedName)
+        socket_send_int(on_devices, rtdeFeedName)
+    end
+
+
+    def on_set_rtde_watchdog(updateHz = ON_INIT_WATCHDOG_HZ):
+        local effect = "stop"
+        if (updateHz < 1):
+            effect = "ignore"
+        end
+        watchdog_conn_reg_str = str_cat("input_int_register_", ON_CONN_SHIFT_INT)
+        rtde_set_watchdog(watchdog_conn_reg_str, updateHz, effect)
+        if (ON_REG_USE_TOOL):
+            watchdog_tool_reg_str = str_cat("input_int_register_", ON_TOOL_SHIFT_INT_ARR[0])
+            rtde_set_watchdog(watchdog_tool_reg_str, updateHz, effect)
+        end
+        if ON_DEBUG_LOG:
+            local update_str = str_cat(" " + effect + " watchdog set to [Hz]: ", updateHz)
+            textmsg(watchdog_conn_reg_str, update_str)
+            if (ON_REG_USE_TOOL):
+                local update_str = str_cat(" " + effect + " watchdog set to [Hz]: ", updateHz)
+                textmsg(watchdog_tool_reg_str, update_str)
+            end
+        end
+    end
+
+
+    # ===================== RTDE FEED - END ============================ #
+    # ===================== DATA READ - START ========================== #
+
+
+    def vg_dataRead_RTDE(tool_index):
+        local reg_offset_bool = ON_TOOL_SHIFT_BOOL_ARR[tool_index]
+        local reg_offset_int = ON_TOOL_SHIFT_INT_ARR[tool_index]
+        local reg_offset_float = ON_TOOL_SHIFT_FLOAT_ARR[tool_index]
+        enter_critical
+            floatRegDummy = read_input_float_register(reg_offset_float + 0)
+            vg_Vacuum_A_arr[tool_index] = floatRegDummy
+            floatRegDummy = read_input_float_register(reg_offset_float + 1)
+            vg_Vacuum_B_arr[tool_index] = floatRegDummy
+            intRegDummy = read_input_integer_register(reg_offset_int + 0)
+            vg_device_id_arr[tool_index] = intRegDummy
+            intRegDummy = read_input_integer_register(reg_offset_int + 1)
+            vg_product_code_arr[tool_index] = intRegDummy
+            intRegDummy = read_input_integer_register(reg_offset_int + 2)
+            vg_Limit_ma_arr[tool_index] = intRegDummy
+        exit_critical
+    end
+
+
+    thread vg_dataRead_thread():
+        if ON_DEBUG_LOG:
+            textmsg("Starting vg_dataRead thread")
+        end
+        while vg_dataRead_running:
+            sync()
+            if (vg_index == ON_DI_DUAL):
+                vg_dataRead_RTDE(ON_DI_PRIMARY)
+                vg_dataRead_RTDE(ON_DI_SECONDARY)
+            else:
+                vg_dataRead_RTDE(vg_index)
+            end
+        end
+        if ON_DEBUG_LOG:
+            textmsg("Stopping vg_dataRead thread")
+        end
+    end
+
+
+    # ===================== DATA READ - END ============================ #
+    # ===================== TCP DEF - START ============================ #
+
+
+    def on_get_tcp_for(tool_index):
+        if tool_index == ON_DI_SECONDARY:
+            local actual_tcp = on_tcp_static_secondary
+        else:
+            local actual_tcp = on_tcp_static_primary
+        end
+        return actual_tcp
+    end
+
+
+    # ===================== TCP DEF - END ============================== #
+    # ===================== ACTION DEF - START ========================= #
+
+    vg_grip_message_title = "OnRobot - VG Grip"
+    vg_grip_bad_arg_channel = "vg_grip argument error : Please select channel 0, 1 or 2"
+    vg_grip_bad_arg_vacuum = "vg_grip : Vacuum should be between 0 and 80"
+    vg_grip_error_command = "Could not send grip command Please check connection. Program halted."
+    vg_grip_could_not_reach_vacuum = "Could not reach requested vacuum. Please check robot/workpiece alignment and suction cups.<br>Program halted."
+    vg_grip_no_part = "No part found while seeking."
+
+    thread vg_time_thread():
+        while vg_time_running:
+            vg_glob_time = vg_glob_time + vg_step_time
+            sync()
+        end
+    end
+
+    thread vg_sendTelemetry_thread():
+        while vg_sendTelemetry_running:
+            send_event("vacuum_ab", vg_Vacuum_A_arr[index], vg_Vacuum_B_arr[index])
+            sleepTime = 1 / vg_sendTelemetry_updateHz
+            sleep(sleepTime)
+        end
+    end
+
+
+    def vg_grip(channel = 2, vacuum = 60, timeout = 3.0, tool_index = 0):
+        local retVal = 0
+        if channel < 0 or channel > 2:
+            send_event("error", vg_grip_message_title, vg_grip_bad_arg_channel)
+            show_popup(vg_grip_bad_arg_channel, error = True)
+            retVal = -99
+        end
+        if vacuum < 0 or vacuum > 80:
+            send_event("error", vg_grip_message_title, vg_grip_bad_arg_vacuum)
+            show_popup(vg_grip_bad_arg_vacuum, error = True)
+            retVal = -99
+        end
+        if retVal != 0:
+            halt
+        end
+        #if (tool_index == ON_DI_SECONDARY):
+        #  local isPrimary = False
+        #else:
+        #  local isPrimary = True
+        #end
+        #if (on_follow_tcp):
+        #  on_tcp_set_actual_to(isPrimary)
+        #end
+        local err = on_tool_xmlrpc.vg10_grip(tool_index, channel, vacuum * 1.0)
+        if err < 0:
+            send_event("error", vg_grip_message_title, vg_grip_error_command)
+            show_popup(vg_grip_error_command, title = vg_grip_message_title, error = True, blocking = False)
+            halt
+        end
+        if timeout > 0.0:
+            vg_glob_time = 0.0
+            while (((channel == 0 or channel == 2) and vg_Vacuum_A_arr[tool_index] < vacuum) or ((channel == 1 or channel == 2) and vg_Vacuum_B_arr[tool_index] < vacuum)):
+                if vg_glob_time > timeout:
+                    # Handled by retVal now
+                    # send_event("error", vg_grip_message_title, vg_grip_could_not_reach_vacuum)
+                    # show_popup(vg_grip_could_not_reach_vacuum, title = vg_grip_message_title, error = True, blocking = False)
+                    # halt 
+                    retVal = 1
+                    vg_release(channel, tool_index = tool_index)
+                    break
+                end
+                sync()
+            end
+            send_event("vacuum_ab", vg_Vacuum_A_arr[index], vg_Vacuum_B_arr[index])
+            if retVal == 0:
+                send_event("vacuum_reached", True)
+            else:
+                send_event("vacuum_reached", False)
+                # Not an error - covered by reached_vacuum in state
+                #send_event("error", vg_grip_message_title, vg_grip_could_not_reach_vacuum)
+                show_popup(vg_grip_could_not_reach_vacuum, title = vg_grip_message_title, error = True, blocking = False)
+            end
+        else:
+            send_event("vacuum_ab", vg_Vacuum_A_arr[index], vg_Vacuum_B_arr[index])
+            # maybe remove - default value is in state false
+            send_event("vacuum_reached", False)
+        end
+        #if (on_follow_tcp):
+        #  on_tcp_update(isPrimary)
+        #end
+        return retVal
+    end
+
+
+    vg_release_message_title = "OnRobot - VG Release"
+    vg_release_bad_channel = "vg_release : Please select channel 0, 1 or 2"
+    vg_release_command_error = "Could not send release command. Please check connection. Program halted."
+    vg_release_failed = "Could not perform release. Please check power. Program halted."
+
+    def vg_release(channel = 2, timeout = 3.0, tool_index = 0):
+        local retVal = 0
+        if channel < 0 or channel > 2:
+            send_event("error", vg_release_message_title, vg_release_bad_channel)
+            show_popup(vg_release_bad_channel, title = vg_release_message_title, error = True, blocking = False)
+            halt
+        end
+        if (tool_index == ON_DI_SECONDARY):
+            local isPrimary = False
+        else:
+            local isPrimary = True
+        end
+        #if (on_follow_tcp):
+        #  on_tcp_set_actual_to(isPrimary)
+        #end
+        local release_A = channel == 0 or channel == 2
+        local release_B = channel == 1 or channel == 2
+        local err = on_tool_xmlrpc.vg10_release(tool_index, release_A, release_B)
+        if err < 0:
+            send_event("error", vg_release_message_title, vg_release_command_error)
+            show_popup(vg_release_command_error, title = vg_release_message_title, error = True, blocking = False)
+            halt
+        else:
+            if timeout > 0.0:
+                vg_glob_time = 0.0
+                while (((channel == 0 or channel == 2) and vg_Vacuum_A_arr[tool_index] > 1) or ((channel == 1 or channel == 2) and vg_Vacuum_B_arr[tool_index] > 1)):
+                    if vg_glob_time > timeout:
+                        # Handled by retVal now
+                        # send_event("error", vg_release_message_title, vg_release_failed)
+                        # show_popup(vg_release_failed, title = vg_release_message_title, error = True, blocking = False)
+                        # halt 
+                        retVal = 1
+                        break
+                    end
+                    sync()
+                end
+                send_event("vacuum_ab", vg_Vacuum_A_arr[index], vg_Vacuum_B_arr[index])
+                if retVal == 0:
+                    send_event("vacuum_released", True)
+                else:
+                    send_event("vacuum_released", False)
+                    # Not an error - covered by reached_vacuum in state
+                    # send_event("error", vg_release_message_title, vg_release_failed)
+                    show_popup(vg_release_failed, title = vg_release_message_title, error = True, blocking = False)
+                end
+            else:
+                send_event("vacuum_ab", vg_Vacuum_A_arr[index], vg_Vacuum_B_arr[index])
+                # maybe remove - default value is in state false
+                send_event("vacuum_released", False)
+            end
+        end
+        #if (on_follow_tcp):
+        #  on_tcp_update(isPrimary)
+        #end
+        return retVal
+    end
+
+
+    def vg_seek(tool_index):
+        local retVal = 0
+        zero_ftsensor()
+        #if (on_follow_tcp):
+        #  if (tool_index == ON_DI_SECONDARY):
+        #    local isPrimary = False
+        #  else:
+        #    local isPrimary = True
+        #  end
+        #  on_tcp_set_actual_to(isPrimary)
+        #end
+        local actual_tcp = on_get_tcp_for(tool_index)
+        local p0 = pose_trans(get_actual_tool_flange_pose(), actual_tcp)
+        force_mode(p0, [0, 0, 1, 0, 0, 0], [0, 0, 10, 0, 0, 0], 2, [1, 1, 0.1, d2r(10), d2r(10), 1])
+        sleep(0.10)
+        while True:
+            v = get_actual_tcp_speed()
+            if (norm([v[0], v[1], v[2]]) < 0.003) and (norm([v[3], v[4], v[5]]) < 0.005):
+                end_force_mode()
+                break
+            else:
+                local p1 = pose_trans(get_actual_tool_flange_pose(), actual_tcp)
+                if (point_dist(p0, p1) > 0.1):
+                    end_force_mode()
+                    send_event("object_detection", False)
+                    # ursprünglich blocking true
+                    show_popup(vg_grip_no_part, title = vg_grip_message_title, warning = True, blocking = False)
+                    retVal = 1
+                    break
+                else:
+                    sync()
+                end
+            end
+        end
+        if (retVal != 1):
+            send_event("object_detection", True)
+        end
+        return retVal
+    end
+
+    def vg_seek_grip(channel = 2, vacuum = 60, timeout = 3.0, tool_index = 0):
+        seekresult = vg_seek(tool_index)
+        if (seekresult != 1):
+            vg_grip(channel = channel, vacuum = vacuum, timeout = timeout, tool_index = tool_index)
+        else:
+            send_event("vacuum_ab", vg_Vacuum_A_arr[index], vg_Vacuum_B_arr[index])
+            # Überflüssig vacuum_reached always False
+            if (((channel == 0 or channel == 2) and vg_Vacuum_A_arr[tool_index] < vacuum) or ((channel == 1 or channel == 2) and vg_Vacuum_B_arr[tool_index] < vacuum)):
+                send_event("vacuum_reached", False) 
+            else:
+                send_event("vacuum_reached", True) 
+            end
+            halt
+        end
+    end
+
+
+    # ===================== ACTION DEF - END =========================== #
+    # ===================== INIT - START =============================== #
+    def done_waiting_for_init(device_name, product_code, tool_index = 0):
+        textmsg(str_cat(device_name, str_cat(str_cat("[", tool_index), "]: ")), product_code)
+    end
+
+    def vg_wait_for_init(tool_index):
+        local vg_timeout = 0
+        while not(vg_product_code_arr[tool_index] == VG_DEVICE_ID_VG10 or vg_product_code_arr[tool_index] == VG_DEVICE_ID_VGC10):
+            sync()
+            vg_timeout = vg_timeout + 1
+            if (vg_timeout > ON_INIT_TIMEOUT):
+                send_event("tool_detection", False)
+                show_popup(vg_device_id_timeout, vg_error_title, error = True, blocking = False)
+                halt
+            end
+        end
+        send_event("tool_detection", True)
+        done_waiting_for_init("VG", vg_product_code_arr[tool_index], tool_index)
+    end
+
+    sync()
+    textmsg(on_xmlrpc_start_ip, on_conn_ip)
+    if (ON_REG_USE_TOOL):
+        on_regStart_conn = [ON_CONN_SHIFT_BOOL, ON_CONN_SHIFT_INT, ON_CONN_SHIFT_FLOAT]
+        on_regSum_conn = [ON_CONN_REG_SUM_BOOL, ON_CONN_REG_SUM_INT, ON_CONN_REG_SUM_FLOAT]
+        on_rtde_feed_open(on_conn_ip, on_conn_rtde_feed_name, on_regStart_conn, on_regSum_conn, ON_REGISTERS_SPEEDL_FLOAT)
+        sync()
+        textmsg(on_xmlrpc_start_ip, on_tool_ip)
+        on_regStart_tool = [ON_TOOL_SHIFT_BOOL, ON_TOOL_SHIFT_INT, ON_TOOL_SHIFT_FLOAT]
+        on_regSum_tool = [ON_TOOL_REG_SUM_BOOL, ON_TOOL_REG_SUM_INT, ON_TOOL_REG_SUM_FLOAT]
+        on_rtde_feed_open(on_tool_ip, on_tool_rtde_feed_name, on_regStart_tool, on_regSum_tool, 0)
+        sync()
+    else:
+        on_regStart_conn = [ON_CONN_SHIFT_BOOL, ON_CONN_SHIFT_INT, ON_CONN_SHIFT_FLOAT]
+        on_regSum_conn = [ON_CONN_REG_SUM_BOOL, ON_CONN_REG_SUM_INT, ON_CONN_REG_SUM_FLOAT]
+        on_rtde_feed_open(on_conn_ip, on_conn_rtde_feed_name, on_regStart_conn, on_regSum_conn, ON_REGISTERS_SPEEDL_FLOAT)
+        sync()
+    end
+    on_set_rtde_watchdog(updateHz = 0.2)
+    sync()
+    vg_dataRead_running = True
+    vg_dataRead_thrd = run vg_dataRead_thread()
+    sync()
+    vg_time_running = True
+    vg_timeout_thrd = run vg_time_thread()
+    sync()
+    textmsg(vg_device_id_waiting)
+    if (vg_index == ON_DI_DUAL):
+        vg_wait_for_init(ON_DI_PRIMARY)
+        vg_wait_for_init(ON_DI_SECONDARY)
+    else:
+        vg_wait_for_init(vg_index)
+    end
+    vg_sendTelemetry_running = True
+    vg_sendTelemetry_updateHz = 10
+    vg_sendTelemetry_thrd = run vg_sendTelemetry_thread()
+
+
+    # ===================== INIT - END ================================= #
+    # ===================== RUN PROGRAM - START ======================== #
+
+    {{_scriptTask_}}
+
+    # ===================== RUN PROGRAM - END ========================== #
+
+end

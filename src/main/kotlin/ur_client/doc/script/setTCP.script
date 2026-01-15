@@ -1,0 +1,52 @@
+on_follow_tcp = True
+on_tcp_offset_actual=ON_ZEROFRAME
+on_tcp_offset_primary=ON_ZEROFRAME
+on_tcp_log_msg_default="OnRobot: Robot TCP Offset set to:"
+on_tcp_active_is_primary = True
+
+
+if(tool_index==ON_DI_SECONDARY):
+	local isPrimary=False
+else:
+	local isPrimary=True
+end 
+if(on_follow_tcp):
+	on_tcp_set_actual_to(isPrimary)
+end 
+
+def on_tcp_set_actual_to(isPrimary=True):
+	on_tcp_offset_actual=on_tcp_offset_primary
+	if(on_follow_tcp):
+		textmsg(on_tcp_log_msg_default,on_tcp_offset_actual)
+	end 
+	on_tcp_active_is_primary=isPrimary
+	on_tcp_offset_set(on_tcp_offset_actual)
+end 
+
+
+def on_tcp_offset_set(TCP_offset):
+	if ON_DEBUG_LOG:
+		textmsg("TCP Offset set started!")
+	end 
+	on_tcp_offset_send(TCP_offset)
+	if(on_follow_tcp):
+		set_tcp(TCP_offset)
+	end 
+	on_robot_TCP_offset=TCP_offset
+	if ON_DEBUG_LOG:
+		textmsg("TCP Offset set to: ",on_robot_TCP_offset)
+	end 
+end 
+
+
+def on_tcp_offset_send(TCP_offset):
+	if ON_DEBUG_LOG:
+		textmsg("TCP Offset sending started!")
+	end 
+	local offset=[TCP_offset[0]*1000.0,TCP_offset[1]*1000.0,TCP_offset[2]*1000.0,TCP_offset[3],TCP_offset[4],TCP_offset[5]]
+	on_conn_xmlrpc.cb_tcp(offset)
+	on_robot_TCP_offset=TCP_offset
+	if ON_DEBUG_LOG:
+		textmsg("TCP Offset sent.")
+	end 
+end 

@@ -1,0 +1,38 @@
+- Fehlermeldung NoVacuum auslesen + handeln + schließen
+- NoGrip Fehler handeln bzw. impl.
+- Checkout other Input stream messages packages
+
+-=RobotKeyMessage=-
+    timestamp = 7808282000
+    source = MESSAGE_SOURCE_RTMACHINE
+    robotMessageType = KEY
+    robotMessageCode = 0
+    robotMessageArgument = 0
+    robotMessageTitle = PROGRAM_XXX_STARTED
+    keyTextMessage = vgc10
+
+
+-=RobotKeyMessage=-
+timestamp = 7811570000
+source = MESSAGE_SOURCE_RTMACHINE
+robotMessageType = KEY
+robotMessageCode = 0
+robotMessageArgument = 0
+robotMessageTitle = PROGRAM_XXX_STOPPED
+keyTextMessage = vgc10
+
+
+ -=RequestValueMessage=-
+timestamp = 7811556000
+source = MESSAGE_SOURCE_RTMACHINE
+robotMessageType = REQUEST_VALUE
+requestID = 23
+requestedType = REQUEST_VALUE_TYPE_NONE  <= PopupMessage
+requestTextMessage = ????OnRobot - VG GripCould not reach requested vacuum.<br>Please check robot/workpiece alignment and suction cups.<br>Program halted.
+
+
+ -=TextMessage=-
+timestamp = 7808544000
+source = MESSAGE_SOURCE_RTMACHINE
+robotMessageType = TEXT
+textTextMessage = VG[0]: 17

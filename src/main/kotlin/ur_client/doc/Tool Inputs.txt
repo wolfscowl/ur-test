@@ -1,0 +1,15 @@
+OnRobot RG6 Tool:
+on_tool_xmlrpc.rg_grip(tool_index,width2send+0.0,force+0.0)
+Force: 25.0 - 120.0
+width: 0.0 - 160.0 (150.2 with finger tips)
+
+OnRobot 2FG7 Tool:
+retVal=on_tool_xmlrpc.twofg_grip_external(tool_index,width+0.0,force,speed)
+Force: 40 - 80 (85)
+Width (inwards): 1.0 - 39.0 mm
+Width (outwards): 35.0 - 73.0 mm
+speed: 10 - 100 (%)
+
+OnRobot VG Tool:    on_tool_xmlrpc.vg10_grip(tool_index, channel, vacuum * 1.0)
+vacuum: 5 - 80 kPa
+Channel 0 1 2

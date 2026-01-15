@@ -1,0 +1,121 @@
+
+ON_ZEROFRAME=p[0.0,0.0,0.0,0.0,0.0,0.0]
+on_cog_workpiece_secondary = ON_ZEROFRAME
+on_cog_workpiece_primary = ON_ZEROFRAME
+on_mass_workpiece_primary = 0.0
+on_mass_workpiece_secondary= 0.0
+on_mass_primary=0.0
+on_cog_primary=ON_ZEROFRAME
+
+on_mass_actual=0.0
+on_cog_actual=ON_ZEROFRAME
+
+
+	def twofg_payload_set(mass,tool_index=0,use_guard=False):
+		if ON_DEBUG_LOG:
+			textmsg("twofg Payload mass command starting..")
+		end 
+		if(tool_index==ON_DI_SECONDARY):
+			local cogTool=[on_cog_workpiece_secondary[0],on_cog_workpiece_secondary[1],on_cog_workpiece_secondary[2]]
+		else:
+			local cogTool=[on_cog_workpiece_primary[0],on_cog_workpiece_primary[1],on_cog_workpiece_primary[2]]
+		end 
+		if(twofg_Grip_detected_arr[tool_index]):
+			local mass2set=mass
+			twofg_Grip_guard_arr[tool_index]=use_guard and not on_ioqc
+		else:
+			local mass2set=0.0
+			twofg_Grip_guard_arr[tool_index]=False
+		end 
+		on_payload_update_workpiece(mass2set,cogTool,tool_index)
+		if ON_DEBUG_LOG:
+			textmsg("2FG Payload mass command ended.")
+		end 
+	end 
+
+
+	def on_payload_update_workpiece(workpiece_mass,workpiece_cog=[0.0,0.0,0.0],tool_index=0):
+		if ON_DEBUG_LOG:
+			textmsg("Payload Update Workpiece start..")
+		end 
+		if(tool_index!=ON_DI_SECONDARY):
+			on_cog_workpiece_primary=p[workpiece_cog[0],workpiece_cog[1],workpiece_cog[2],0.0,0.0,0.0]
+			on_mass_workpiece_primary=workpiece_mass
+		else:
+			on_cog_workpiece_secondary=p[workpiece_cog[0],workpiece_cog[1],workpiece_cog[2],0.0,0.0,0.0]
+			on_mass_workpiece_secondary=workpiece_mass
+		end 
+		on_payload_update()
+		if ON_DEBUG_LOG:
+			textmsg("Payload Update Workpiece end.")
+		end 
+	end 
+
+
+
+	def on_payload_update():
+		on_payload_update_primary()
+		on_mass_actual =on_mass_primary
+		on_cog_actual=on_cog_primary
+		on_payload_set_actual()
+	end 
+
+
+	def on_payload_update_primary():
+		if ON_DEBUG_LOG:
+			textmsg("Payload Update Primary start..")
+		end 
+		enter_critical
+			on_mass_primary=on_mass_L1L2_primary+on_mass_workpiece_primary
+			local massL1L2L3Ratio=on_mass_workpiece_primary/on_mass_primary
+			local workpieceAbsCOG=pose_trans(on_tcp_dynamic_primary,on_cog_workpiece_primary)
+			workpieceAbsCOG=p[workpieceAbsCOG[0],workpieceAbsCOG[1],workpieceAbsCOG[2],0.0,0.0,0.0]
+			on_cog_primary=interpolate_pose(on_cog_L1L2_primary,workpieceAbsCOG,massL1L2L3Ratio)
+			on_cog_primary=p[on_cog_primary[0],on_cog_primary[1],on_cog_primary[2],0.0,0.0,0.0]
+		exit_critical
+		if ON_DEBUG_LOG:
+			textmsg("Payload Update Primary end.")
+		end 
+	end 
+	
+	
+	def on_payload_set_actual():
+		on_mass_actual =on_mass_primary
+		on_cog_actual=on_cog_primary
+		local CoG=[on_cog_actual[0],on_cog_actual[1],on_cog_actual[2]]
+		on_payload_set(on_mass_actual,CoG)
+	end 
+	
+	
+	def on_payload_set(mass,CoG):
+		if ON_DEBUG_LOG:
+			textmsg("Payload set started!")
+		end 
+		local center_of_gravity=[CoG[0],CoG[1],CoG[2]]
+		on_payload_send(center_of_gravity,mass)
+		if(on_isMetric):
+			local roundedMass=floor(mass*100+0.5)/100
+		else:
+			local roundedMass=floor(mass/ON_LB2KG001+0.5)*ON_LB2KG001
+		end 
+		set_payload(roundedMass,center_of_gravity)   # Eigentliche Funktion zum setzen
+		on_mass_actual=roundedMass
+		on_cog_actual=p[CoG[0],CoG[1],CoG[2],0.0,0.0,0.0]
+		if ON_DEBUG_LOG:
+			textmsg("Payload mass, CoG set to: ",str_cat(str_cat(mass,", "),CoG))
+		end 
+	end 
+	
+	
+	def on_payload_send(CoG,mass):
+		if ON_DEBUG_LOG:
+			textmsg("Payload sending started!")
+		end 
+		local center_of_gravity=[CoG[0]*1000.0,CoG[1]*1000.0,CoG[2]*1000.0]
+		local mount=[on_robot_mount[0]*1000.0,on_robot_mount[1]*1000.0]
+		on_robot_payload_cog=CoG
+		on_robot_payload_mass=mass
+		if ON_DEBUG_LOG:
+			textmsg("Payload sent.")
+		end 
+	end 
